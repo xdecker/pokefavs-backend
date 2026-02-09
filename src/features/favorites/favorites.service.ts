@@ -1,12 +1,17 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { generateCode } from 'src/common/utils/code-generator';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { FavoritePokemonDto } from './dto/favorite-pokemon.dto';
 
 @Injectable()
 export class FavoritesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(pokemons: string[]) {
+  async create(pokemons: FavoritePokemonDto[]) {
     const code = await this.generateUniqueCode();
 
     if (pokemons.length == 0) {
@@ -18,16 +23,22 @@ export class FavoritesService {
       throw new BadRequestException('max 6 pokemons allowed');
     }
 
-    const unique = new Set(pokemons);
+    const ids = pokemons.map((p) => p.id);
+    const uniqueIds = new Set(ids);
 
-    if (unique.size !== pokemons.length) {
+    if (uniqueIds.size !== pokemons.length) {
       throw new BadRequestException('Duplicate Pokemons list not allowed');
     }
+
+    const jsonPokemons = pokemons.map((p) => ({
+      id: p.id,
+      name: p.name,
+    }));
 
     const list = await this.prisma.favoriteList.create({
       data: {
         code,
-        pokemons,
+        pokemons: jsonPokemons,
       },
     });
 
@@ -35,12 +46,13 @@ export class FavoritesService {
   }
 
   async findByCode(code: string) {
-    if(!code) throw new BadRequestException("Please provide a valid code of the list");
-    const list = await  this.prisma.favoriteList.findUnique({
+    if (!code)
+      throw new BadRequestException('Please provide a valid code of the list');
+    const list = await this.prisma.favoriteList.findUnique({
       where: { code },
     });
-    if(!list){
-        throw new NotFoundException("favorite list not found");
+    if (!list) {
+      throw new NotFoundException('favorite list not found');
     }
 
     return list;
